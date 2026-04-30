@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { eq, and, or, desc } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "../trpc.js";
 import { bookings, users, artistProfiles } from "@tattoo-saas/db";
+import { sendEmail, bookingRequestHtml, bookingConfirmedHtml } from "../email.js";
 
 const bookingStatusValues = [
   "pending", "confirmed", "deposit_paid", "completed", "cancelled", "no_show", "all",
@@ -58,6 +59,28 @@ export const bookingsRouter = createTRPCRouter({
         status: "pending",
       }).returning();
 
+      // Notify artist (fire-and-forget, don't block response)
+      const artistUser = await ctx.db.query.users.findFirst({
+        where: (u, { eq }) => eq(u.id, input.artistId),
+      });
+      if (artistUser) {
+        const dateStr = input.startAt.toLocaleDateString("en-US", {
+          weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
+        });
+        void sendEmail({
+          to: artistUser.email,
+          subject: `New booking request — ${input.serviceType} on ${dateStr}`,
+          html: bookingRequestHtml({
+            artistName: artist.displayName,
+            clientEmail: user.email,
+            serviceType: input.serviceType.replace("_", " "),
+            dateStr,
+            description: input.description,
+            bookingId: booking.id,
+          }),
+        });
+      }
+
       return booking;
     }),
 
@@ -99,6 +122,29 @@ export const bookingsRouter = createTRPCRouter({
         })
         .where(eq(bookings.id, input.bookingId))
         .returning();
+
+      // Notify client on confirm
+      if (input.action === "confirm" && input.depositAmount) {
+        const clientUser = await ctx.db.query.users.findFirst({
+          where: (u, { eq }) => eq(u.id, booking.clientId),
+        });
+        if (clientUser) {
+          const dateStr = booking.startAt.toLocaleDateString("en-US", {
+            weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
+          });
+          void sendEmail({
+            to: clientUser.email,
+            subject: `Your booking with ${booking.artist.displayName} is confirmed`,
+            html: bookingConfirmedHtml({
+              clientEmail: clientUser.email,
+              artistName: booking.artist.displayName,
+              dateStr,
+              depositAmount: String(input.depositAmount),
+              bookingId: input.bookingId,
+            }),
+          });
+        }
+      }
 
       return updated;
     }),
