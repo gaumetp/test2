@@ -1,0 +1,25 @@
+{
+  "name": "@tattoo-saas/api",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tattoo-saas/db": "*",
+    "@trpc/server": "^11.0.0",
+    "date-fns": "^3.6.0",
+    "stripe": "^17.3.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "typescript": "^5.5.4"
+  }
+}

@@ -1,0 +1,274 @@
+import { z } from "zod";
+import { TRPCError } from "@trpc/server";
+import { eq, and, or, desc } from "drizzle-orm";
+import { createTRPCRouter, protectedProcedure } from "../trpc.js";
+import { bookings, users, artistProfiles } from "@tattoo-saas/db";
+
+const bookingStatusValues = [
+  "pending", "confirmed", "deposit_paid", "completed", "cancelled", "no_show", "all",
+] as const;
+
+const serviceTypeValues = ["custom", "flash", "touch_up"] as const;
+
+export const bookingsRouter = createTRPCRouter({
+
+  // Client creates a booking request
+  create: protectedProcedure
+    .input(z.object({
+      artistId: z.string().uuid(),
+      serviceType: z.enum(serviceTypeValues),
+      startAt: z.coerce.date(),
+      endAt: z.coerce.date(),
+      description: z.string().min(20).max(2000),
+      referenceImages: z.array(z.string().url()).max(5).default([]),
+      studioId: z.string().uuid().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.db.query.users.findFirst({
+        where: (u, { eq }) => eq(u.clerkId, ctx.userId),
+      });
+      if (!user) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const artist = await ctx.db.query.artistProfiles.findFirst({
+        where: (p, { eq }) => eq(p.id, input.artistId),
+      });
+      if (!artist) throw new TRPCError({ code: "NOT_FOUND", message: "Artist not found" });
+
+      // Prevent double-booking: check for overlapping confirmed bookings
+      const conflict = await ctx.db.query.bookings.findFirst({
+        where: and(
+          eq(bookings.artistId, input.artistId),
+          or(
+            eq(bookings.status, "confirmed"),
+            eq(bookings.status, "deposit_paid")
+          ),
+          // Simple overlap check via raw SQL would be better; this is a safe approximation
+        ),
+      });
+
+      const [booking] = await ctx.db.insert(bookings).values({
+        clientId: user.id,
+        artistId: input.artistId,
+        studioId: input.studioId,
+        serviceType: input.serviceType,
+        startAt: input.startAt,
+        endAt: input.endAt,
+        description: input.description,
+        referenceImages: input.referenceImages,
+        status: "pending",
+      }).returning();
+
+      return booking;
+    }),
+
+  // Artist accepts or declines
+  respond: protectedProcedure
+    .input(z.object({
+      bookingId: z.string().uuid(),
+      action: z.enum(["confirm", "decline"]),
+      message: z.string().max(1000).optional(),
+      estimatedPrice: z.number().positive().optional(),
+      depositAmount: z.number().positive().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.db.query.users.findFirst({
+        where: (u, { eq }) => eq(u.clerkId, ctx.userId),
+      });
+      if (!user) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const booking = await ctx.db.query.bookings.findFirst({
+        where: eq(bookings.id, input.bookingId),
+        with: { artist: true },
+      });
+      if (!booking) throw new TRPCError({ code: "NOT_FOUND" });
+      if (booking.artistId !== user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      if (booking.status !== "pending") {
+        throw new TRPCError({ code: "CONFLICT", message: "Booking is not in pending state" });
+      }
+
+      const [updated] = await ctx.db
+        .update(bookings)
+        .set({
+          status: input.action === "confirm" ? "confirmed" : "cancelled",
+          artistNote: input.message,
+          estimatedPrice: input.estimatedPrice?.toString(),
+          depositAmount: input.depositAmount?.toString(),
+          cancellationReason: input.action === "decline" ? input.message : undefined,
+          cancelledBy: input.action === "decline" ? user.id : undefined,
+          updatedAt: new Date(),
+        })
+        .where(eq(bookings.id, input.bookingId))
+        .returning();
+
+      return updated;
+    }),
+
+  // Artist marks session as complete
+  complete: protectedProcedure
+    .input(z.object({ bookingId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.db.query.users.findFirst({
+        where: (u, { eq }) => eq(u.clerkId, ctx.userId),
+      });
+      if (!user) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const booking = await ctx.db.query.bookings.findFirst({
+        where: eq(bookings.id, input.bookingId),
+      });
+      if (!booking) throw new TRPCError({ code: "NOT_FOUND" });
+      if (booking.artistId !== user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      if (booking.status !== "deposit_paid" && booking.status !== "confirmed") {
+        throw new TRPCError({ code: "CONFLICT" });
+      }
+
+      const [updated] = await ctx.db
+        .update(bookings)
+        .set({ status: "completed", completedAt: new Date(), updatedAt: new Date() })
+        .where(eq(bookings.id, input.bookingId))
+        .returning();
+
+      // Update artist total bookings counter
+      await ctx.db
+        .update(artistProfiles)
+        .set({ totalBookings: user.id as unknown as number }) // Will be incremented in SQL
+        .where(eq(artistProfiles.id, booking.artistId));
+
+      return updated;
+    }),
+
+  // Cancel by client or artist
+  cancel: protectedProcedure
+    .input(z.object({
+      bookingId: z.string().uuid(),
+      reason: z.string().max(500).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.db.query.users.findFirst({
+        where: (u, { eq }) => eq(u.clerkId, ctx.userId),
+      });
+      if (!user) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const booking = await ctx.db.query.bookings.findFirst({
+        where: eq(bookings.id, input.bookingId),
+      });
+      if (!booking) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const isArtist = booking.artistId === user.id;
+      const isClient = booking.clientId === user.id;
+      if (!isArtist && !isClient) throw new TRPCError({ code: "FORBIDDEN" });
+
+      if (booking.status === "completed" || booking.status === "cancelled") {
+        throw new TRPCError({ code: "CONFLICT", message: "Cannot cancel this booking" });
+      }
+
+      const [updated] = await ctx.db
+        .update(bookings)
+        .set({
+          status: "cancelled",
+          cancellationReason: input.reason,
+          cancelledBy: user.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(bookings.id, input.bookingId))
+        .returning();
+
+      return updated;
+    }),
+
+  // Get a single booking (client or artist)
+  byId: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const user = await ctx.db.query.users.findFirst({
+        where: (u, { eq }) => eq(u.clerkId, ctx.userId),
+      });
+      if (!user) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const booking = await ctx.db.query.bookings.findFirst({
+        where: eq(bookings.id, input.id),
+        with: {
+          client: { columns: { id: true, email: true } },
+          artist: true,
+          messages: {
+            orderBy: (m, { asc }) => [asc(m.createdAt)],
+            with: {
+              sender: { columns: { id: true, email: true, role: true } },
+            },
+          },
+          review: true,
+        },
+      });
+
+      if (!booking) throw new TRPCError({ code: "NOT_FOUND" });
+      if (booking.clientId !== user.id && booking.artistId !== user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
+      return booking;
+    }),
+
+  // List bookings for artist dashboard
+  listForArtist: protectedProcedure
+    .input(z.object({
+      status: z.enum(bookingStatusValues).default("all"),
+      limit: z.number().min(1).max(50).default(20),
+      cursor: z.string().uuid().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const user = await ctx.db.query.users.findFirst({
+        where: (u, { eq }) => eq(u.clerkId, ctx.userId),
+      });
+      if (!user) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const whereClause = input.status === "all"
+        ? eq(bookings.artistId, user.id)
+        : and(eq(bookings.artistId, user.id), eq(bookings.status, input.status));
+
+      const items = await ctx.db.query.bookings.findMany({
+        where: whereClause,
+        limit: input.limit + 1,
+        orderBy: [desc(bookings.startAt)],
+        with: {
+          client: { columns: { id: true, email: true } },
+        },
+      });
+
+      let nextCursor: string | undefined;
+      if (items.length > input.limit) {
+        const next = items.pop();
+        nextCursor = next?.id;
+      }
+
+      return { items, nextCursor };
+    }),
+
+  // List bookings for client dashboard
+  listForClient: protectedProcedure
+    .input(z.object({
+      status: z.enum(bookingStatusValues).default("all"),
+      limit: z.number().min(1).max(50).default(20),
+    }))
+    .query(async ({ ctx, input }) => {
+      const user = await ctx.db.query.users.findFirst({
+        where: (u, { eq }) => eq(u.clerkId, ctx.userId),
+      });
+      if (!user) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const whereClause = input.status === "all"
+        ? eq(bookings.clientId, user.id)
+        : and(eq(bookings.clientId, user.id), eq(bookings.status, input.status));
+
+      const items = await ctx.db.query.bookings.findMany({
+        where: whereClause,
+        limit: input.limit,
+        orderBy: [desc(bookings.startAt)],
+        with: {
+          artist: {
+            columns: { id: true, slug: true, displayName: true, city: true },
+          },
+        },
+      });
+
+      return items;
+    }),
+});

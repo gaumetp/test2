@@ -1,0 +1,48 @@
+import { createEnv } from "@t3-oss/env-nextjs";
+import { z } from "zod";
+
+export const env = createEnv({
+  server: {
+    DATABASE_URL: z.string().url(),
+    DATABASE_URL_POOLING: z.string().url().optional(),
+    CLERK_SECRET_KEY: z.string().min(1),
+    CLERK_WEBHOOK_SECRET: z.string().min(1),
+    STRIPE_SECRET_KEY: z.string().min(1),
+    STRIPE_WEBHOOK_SECRET: z.string().min(1),
+    STRIPE_PRICE_PRO: z.string().min(1),
+    STRIPE_PRICE_STUDIO: z.string().min(1),
+    STRIPE_PRICE_STUDIO_PLUS: z.string().min(1),
+    CLOUDINARY_API_KEY: z.string().min(1),
+    CLOUDINARY_API_SECRET: z.string().min(1),
+    RESEND_API_KEY: z.string().min(1),
+    EMAIL_FROM: z.string().min(1),
+    NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  },
+  client: {
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1),
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1),
+    NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: z.string().min(1),
+    NEXT_PUBLIC_APP_URL: z.string().url(),
+  },
+  runtimeEnv: {
+    DATABASE_URL: process.env.DATABASE_URL,
+    DATABASE_URL_POOLING: process.env.DATABASE_URL_POOLING,
+    CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
+    CLERK_WEBHOOK_SECRET: process.env.CLERK_WEBHOOK_SECRET,
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+    STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+    STRIPE_PRICE_PRO: process.env.STRIPE_PRICE_PRO,
+    STRIPE_PRICE_STUDIO: process.env.STRIPE_PRICE_STUDIO,
+    STRIPE_PRICE_STUDIO_PLUS: process.env.STRIPE_PRICE_STUDIO_PLUS,
+    CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
+    CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    EMAIL_FROM: process.env.EMAIL_FROM,
+    NODE_ENV: process.env.NODE_ENV,
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+  },
+  skipValidation: process.env.SKIP_ENV_VALIDATION === "true",
+});
