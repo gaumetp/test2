@@ -32,6 +32,10 @@ export default async function ArtistDashboardPage() {
         </div>
       </div>
 
+      <Suspense fallback={null}>
+        <SetupBanner />
+      </Suspense>
+
       <Suspense fallback={<StatsLoading />}>
         <ArtistStats />
       </Suspense>
@@ -39,6 +43,27 @@ export default async function ArtistDashboardPage() {
       <Suspense fallback={<div className="h-64 animate-pulse rounded-lg bg-muted" />}>
         <RecentBookings />
       </Suspense>
+    </div>
+  );
+}
+
+async function SetupBanner() {
+  const profile = await api.artists.me();
+  if (!profile || profile.stripeAccountEnabled) return null;
+
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-orange-200 bg-orange-50 p-4">
+      <div className="flex-1">
+        <p className="font-medium text-orange-900">Finish setting up payments</p>
+        <p className="mt-1 text-sm text-orange-800">
+          You can't receive deposits until you connect a Stripe account. New booking requests will still come in.
+        </p>
+      </div>
+      <Link href="/dashboard/artist/profile?tab=payments">
+        <Button size="sm" variant="outline" className="border-orange-300 bg-white">
+          Set up payouts
+        </Button>
+      </Link>
     </div>
   );
 }

@@ -39,10 +39,14 @@ export const messagesRouter = createTRPCRouter({
 
       // Notify the other party
       const recipientId = user.id === booking.clientId ? booking.artistId : booking.clientId;
+      const recipientIsArtist = recipientId === booking.artistId;
+      const url = recipientIsArtist
+        ? `/dashboard/artist/bookings/${input.bookingId}`
+        : `/dashboard/client/bookings/${input.bookingId}`;
       void ctx.db.insert(notifications).values({
         userId: recipientId,
         type: "new_message",
-        payload: { bookingId: input.bookingId, senderEmail: user.email },
+        payload: { bookingId: input.bookingId, senderEmail: user.email, url },
       });
 
       return message;

@@ -155,4 +155,51 @@ export const paymentsRouter = createTRPCRouter({
 
       return user?.subscription ?? null;
     }),
+
+  // Open Stripe customer portal for subscription management
+  createPortalSession: protectedProcedure
+    .input(z.object({ returnUrl: z.string().url() }))
+    .mutation(async ({ ctx, input }) => {
+      const Stripe = (await import("stripe")).default;
+      const stripe = new Stripe(process.env["STRIPE_SECRET_KEY"]!, { apiVersion: "2025-02-24.acacia" });
+
+      const user = await ctx.db.query.users.findFirst({
+        where: (u, { eq }) => eq(u.clerkId, ctx.userId),
+      });
+      if (!user) throw new TRPCError({ code: "NOT_FOUND" });
+      if (!user.stripeCustomerId) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "No active subscription to manage" });
+      }
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: user.stripeCustomerId,
+        return_url: input.returnUrl,
+      });
+
+      return { url: session.url };
+    }),
+
+  // Refresh Stripe Connect status from Stripe (call after onboarding return)
+  refreshConnectStatus: artistProcedure
+    .mutation(async ({ ctx }) => {
+      const Stripe = (await import("stripe")).default;
+      const stripe = new Stripe(process.env["STRIPE_SECRET_KEY"]!, { apiVersion: "2025-02-24.acacia" });
+
+      const profile = await ctx.db.query.artistProfiles.findFirst({
+        where: (p, { eq }) => eq(p.id, ctx.user.id),
+      });
+      if (!profile?.stripeAccountId) {
+        return { enabled: false };
+      }
+
+      const account = await stripe.accounts.retrieve(profile.stripeAccountId);
+      const enabled = !!(account.charges_enabled && account.payouts_enabled);
+
+      await ctx.db
+        .update(artistProfiles)
+        .set({ stripeAccountEnabled: enabled })
+        .where(eq(artistProfiles.id, ctx.user.id));
+
+      return { enabled };
+    }),
 });

@@ -72,7 +72,13 @@ export const bookingsRouter = createTRPCRouter({
         void ctx.db.insert(notifications).values({
           userId: input.artistId,
           type: "booking_request",
-          payload: { bookingId: booking.id, clientEmail: user.email, serviceType: input.serviceType, dateStr },
+          payload: {
+            bookingId: booking.id,
+            clientEmail: user.email,
+            serviceType: input.serviceType,
+            dateStr,
+            url: `/dashboard/artist/bookings/${booking.id}`,
+          },
         });
         void sendEmail({
           to: artistUser.email,
@@ -141,7 +147,12 @@ export const bookingsRouter = createTRPCRouter({
           void ctx.db.insert(notifications).values({
             userId: booking.clientId,
             type: "booking_confirmed",
-            payload: { bookingId: input.bookingId, artistName: booking.artist.displayName, depositAmount: input.depositAmount },
+            payload: {
+              bookingId: input.bookingId,
+              artistName: booking.artist.displayName,
+              depositAmount: input.depositAmount,
+              url: `/dashboard/client/bookings/${input.bookingId}`,
+            },
           });
           if (input.depositAmount) {
             void sendEmail({
@@ -160,7 +171,11 @@ export const bookingsRouter = createTRPCRouter({
           void ctx.db.insert(notifications).values({
             userId: booking.clientId,
             type: "booking_declined",
-            payload: { bookingId: input.bookingId, artistName: booking.artist.displayName },
+            payload: {
+              bookingId: input.bookingId,
+              artistName: booking.artist.displayName,
+              url: `/dashboard/client/bookings/${input.bookingId}`,
+            },
           });
         }
       }

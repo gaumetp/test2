@@ -38,7 +38,11 @@ export async function POST(req: Request) {
           await db.insert(notifications).values({
             userId: updated.artistId,
             type: "deposit_paid",
-            payload: { bookingId, amount: intent.amount / 100 },
+            payload: {
+              bookingId,
+              amount: intent.amount / 100,
+              url: `/dashboard/artist/bookings/${bookingId}`,
+            },
           });
         }
       }

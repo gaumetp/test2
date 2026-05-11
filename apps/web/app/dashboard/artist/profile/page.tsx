@@ -43,6 +43,14 @@ export default function ArtistProfilePage() {
     onSuccess: ({ url }) => { window.location.href = url; },
   });
 
+  const refreshConnect = trpc.payments.refreshConnectStatus.useMutation({
+    onSuccess: () => utils.artists.me.invalidate(),
+  });
+
+  const openPortal = trpc.payments.createPortalSession.useMutation({
+    onSuccess: ({ url }) => { window.location.href = url; },
+  });
+
   const getSubscription = trpc.payments.getSubscription.useQuery();
 
   const [saved, setSaved] = useState(false);
@@ -347,44 +355,91 @@ export default function ArtistProfilePage() {
                   Required to receive deposit payments from clients.
                 </p>
               </div>
+              {myProfile?.stripeAccountEnabled ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Connected
+                </span>
+              ) : myProfile?.stripeAccountId ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-700">
+                  Setup incomplete
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">
+                  Not set up
+                </span>
+              )}
             </div>
-            <Button
-              onClick={() =>
-                createStripeOnboarding.mutate({
-                  returnUrl: `${window.location.origin}/dashboard/artist/profile?tab=payments`,
-                })
-              }
-              disabled={createStripeOnboarding.isPending}
-            >
-              <ExternalLink className="mr-2 h-4 w-4" />
-              {createStripeOnboarding.isPending ? "Redirecting..." : "Set up Stripe payouts"}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={() =>
+                  createStripeOnboarding.mutate({
+                    returnUrl: `${window.location.origin}/dashboard/artist/profile?tab=payments`,
+                  })
+                }
+                disabled={createStripeOnboarding.isPending}
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                {createStripeOnboarding.isPending
+                  ? "Redirecting..."
+                  : myProfile?.stripeAccountEnabled
+                  ? "Manage account"
+                  : myProfile?.stripeAccountId
+                  ? "Continue setup"
+                  : "Set up Stripe payouts"}
+              </Button>
+              {myProfile?.stripeAccountId && !myProfile.stripeAccountEnabled && (
+                <Button
+                  variant="outline"
+                  onClick={() => refreshConnect.mutate()}
+                  disabled={refreshConnect.isPending}
+                >
+                  {refreshConnect.isPending ? "Checking..." : "Refresh status"}
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Subscription */}
           <div className="rounded-lg border p-5 space-y-4">
             <h3 className="font-semibold">Subscription</h3>
             {getSubscription.data ? (
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Plan</span>
-                  <span className="font-medium capitalize">{getSubscription.data.tier}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Status</span>
-                  <span className={`font-medium ${getSubscription.data.status === "active" ? "text-green-600" : "text-orange-600"}`}>
-                    {getSubscription.data.status}
-                  </span>
-                </div>
-                {getSubscription.data.currentPeriodEnd && (
+              <>
+                <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Renews</span>
-                    <span className="font-medium">
-                      {new Date(getSubscription.data.currentPeriodEnd).toLocaleDateString()}
+                    <span className="text-muted-foreground">Plan</span>
+                    <span className="font-medium capitalize">{getSubscription.data.tier.replace("_", " ")}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Status</span>
+                    <span className={`font-medium ${getSubscription.data.status === "active" ? "text-green-600" : "text-orange-600"}`}>
+                      {getSubscription.data.status}
                     </span>
                   </div>
-                )}
-              </div>
+                  {getSubscription.data.currentPeriodEnd && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {getSubscription.data.cancelAtPeriodEnd ? "Ends" : "Renews"}
+                      </span>
+                      <span className="font-medium">
+                        {new Date(getSubscription.data.currentPeriodEnd).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    openPortal.mutate({
+                      returnUrl: `${window.location.origin}/dashboard/artist/profile?tab=payments`,
+                    })
+                  }
+                  disabled={openPortal.isPending}
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  {openPortal.isPending ? "Opening..." : "Manage subscription"}
+                </Button>
+              </>
             ) : (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">

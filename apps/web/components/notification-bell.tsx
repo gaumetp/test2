@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { Bell, Check } from "lucide-react";
 import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
@@ -88,34 +89,56 @@ export function NotificationBell() {
                   No notifications yet
                 </p>
               ) : (
-                items.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`flex items-start gap-3 border-b px-4 py-3 last:border-0 ${
-                      !item.readAt ? "bg-accent/40" : ""
-                    }`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium leading-tight">
-                        {TYPE_LABELS[item.type] ?? item.type}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {new Date(item.createdAt).toLocaleDateString(undefined, {
-                          month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
-                        })}
-                      </p>
+                items.map((item) => {
+                  const url = (item.payload as { url?: string } | null)?.url;
+                  const body = (
+                    <div className="flex flex-1 items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium leading-tight">
+                          {TYPE_LABELS[item.type] ?? item.type}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {new Date(item.createdAt).toLocaleDateString(undefined, {
+                            month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                      {!item.readAt && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            markRead.mutate({ id: item.id });
+                          }}
+                          className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
+                          title="Mark as read"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
-                    {!item.readAt && (
-                      <button
-                        onClick={() => markRead.mutate({ id: item.id })}
-                        className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
-                        title="Mark as read"
-                      >
-                        <Check className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                ))
+                  );
+
+                  const className = `flex items-start gap-3 border-b px-4 py-3 last:border-0 ${
+                    !item.readAt ? "bg-accent/40" : ""
+                  } ${url ? "cursor-pointer hover:bg-accent" : ""}`;
+
+                  return url ? (
+                    <Link
+                      key={item.id}
+                      href={url}
+                      className={className}
+                      onClick={() => {
+                        if (!item.readAt) markRead.mutate({ id: item.id });
+                        setOpen(false);
+                      }}
+                    >
+                      {body}
+                    </Link>
+                  ) : (
+                    <div key={item.id} className={className}>{body}</div>
+                  );
+                })
               )}
             </div>
           </div>
