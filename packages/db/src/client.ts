@@ -1,10 +1,12 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import * as schema from "./schema/index.js";
+import * as schema from "./schema/index";
 
 declare global {
   // eslint-disable-next-line no-var
   var _pgClient: postgres.Sql | undefined;
+  // eslint-disable-next-line no-var
+  var _drizzleDb: ReturnType<typeof drizzle<typeof schema>> | undefined;
 }
 
 function createClient() {
@@ -18,11 +20,23 @@ function createClient() {
   });
 }
 
-// In development, reuse the client to avoid exhausting connections
-const sql = globalThis._pgClient ?? createClient();
-if (process.env["NODE_ENV"] !== "production") {
-  globalThis._pgClient = sql;
+function getDb() {
+  if (!globalThis._drizzleDb) {
+    const sql = globalThis._pgClient ?? createClient();
+    if (process.env["NODE_ENV"] !== "production") {
+      globalThis._pgClient = sql;
+    }
+    globalThis._drizzleDb = drizzle(sql, { schema });
+  }
+  return globalThis._drizzleDb;
 }
 
-export const db = drizzle(sql, { schema });
-export type Database = typeof db;
+// Lazy proxy: defers DB client construction until first property access.
+// This lets Next.js collect page data during build without DATABASE_URL.
+export const db = new Proxy({} as ReturnType<typeof drizzle<typeof schema>>, {
+  get(_target, prop) {
+    return Reflect.get(getDb(), prop);
+  },
+});
+
+export type Database = ReturnType<typeof drizzle<typeof schema>>;

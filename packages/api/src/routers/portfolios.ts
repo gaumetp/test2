@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq, and } from "drizzle-orm";
-import { createTRPCRouter, artistProcedure } from "../trpc.js";
+import { createTRPCRouter, artistProcedure } from "../trpc";
 import { portfolioItems, artistProfiles } from "@tattoo-saas/db";
 
 const FREE_TIER_LIMIT = 5;

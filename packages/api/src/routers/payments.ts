@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
-import { createTRPCRouter, protectedProcedure, artistProcedure } from "../trpc.js";
+import { createTRPCRouter, protectedProcedure, artistProcedure } from "../trpc";
 import { bookings, artistProfiles, subscriptions } from "@tattoo-saas/db";
 
 // Commission rates by tier (applied to deposit amount)

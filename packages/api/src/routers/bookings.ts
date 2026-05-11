@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq, and, or, desc } from "drizzle-orm";
-import { createTRPCRouter, protectedProcedure } from "../trpc.js";
+import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { bookings, users, artistProfiles, notifications } from "@tattoo-saas/db";
-import { sendEmail, bookingRequestHtml, bookingConfirmedHtml } from "../email.js";
+import { sendEmail, bookingRequestHtml, bookingConfirmedHtml } from "../email";
 
 const bookingStatusValues = [
   "pending", "confirmed", "deposit_paid", "completed", "cancelled", "no_show", "all",

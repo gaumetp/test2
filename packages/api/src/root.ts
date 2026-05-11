@@ -1,12 +1,12 @@
-import { createTRPCRouter } from "./trpc.js";
-import { artistsRouter } from "./routers/artists.js";
-import { bookingsRouter } from "./routers/bookings.js";
-import { availabilityRouter } from "./routers/availability.js";
-import { reviewsRouter } from "./routers/reviews.js";
-import { paymentsRouter } from "./routers/payments.js";
-import { messagesRouter } from "./routers/messages.js";
-import { portfoliosRouter } from "./routers/portfolios.js";
-import { notificationsRouter } from "./routers/notifications.js";
+import { createTRPCRouter } from "./trpc";
+import { artistsRouter } from "./routers/artists";
+import { bookingsRouter } from "./routers/bookings";
+import { availabilityRouter } from "./routers/availability";
+import { reviewsRouter } from "./routers/reviews";
+import { paymentsRouter } from "./routers/payments";
+import { messagesRouter } from "./routers/messages";
+import { portfoliosRouter } from "./routers/portfolios";
+import { notificationsRouter } from "./routers/notifications";
 
 export const appRouter = createTRPCRouter({
   artists: artistsRouter,

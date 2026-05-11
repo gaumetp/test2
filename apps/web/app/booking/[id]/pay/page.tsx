@@ -31,6 +31,7 @@ export default function PayDepositPage({ params }: PayDepositPageProps) {
     if (booking?.status === "confirmed" && !clientSecret) {
       createIntent.mutate({ bookingId: params.id });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [booking?.status]);
 
   if (!isSignedIn) {

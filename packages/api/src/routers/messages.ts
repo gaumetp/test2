@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
-import { createTRPCRouter, protectedProcedure } from "../trpc.js";
+import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { messages, bookings, notifications } from "@tattoo-saas/db";
 
 export const messagesRouter = createTRPCRouter({

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { createTRPCRouter, protectedProcedure } from "../trpc.js";
+import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { notifications, users } from "@tattoo-saas/db";
 
 export const notificationsRouter = createTRPCRouter({

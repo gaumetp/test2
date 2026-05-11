@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq, and } from "drizzle-orm";
-import { createTRPCRouter, publicProcedure, artistProcedure } from "../trpc.js";
+import { createTRPCRouter, publicProcedure, artistProcedure } from "../trpc";
 import { availabilityRules, availabilityOverrides, bookings } from "@tattoo-saas/db";
 import { addMinutes, format, parseISO, isBefore, isAfter, startOfDay, endOfDay } from "date-fns";
 

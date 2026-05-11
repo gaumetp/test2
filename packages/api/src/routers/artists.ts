@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq, and, ilike, sql, desc } from "drizzle-orm";
-import { createTRPCRouter, publicProcedure, artistProcedure, protectedProcedure } from "../trpc.js";
+import { createTRPCRouter, publicProcedure, artistProcedure, protectedProcedure } from "../trpc";
 import { artistProfiles, users } from "@tattoo-saas/db";
 
 const tattooStyles = [
