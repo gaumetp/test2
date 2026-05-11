@@ -23,6 +23,9 @@ export default async function ArtistDashboardPage() {
           <p className="text-muted-foreground">Manage your bookings and profile</p>
         </div>
         <div className="flex gap-3">
+          <Link href="/dashboard/artist/reviews">
+            <Button variant="outline" size="sm">Reviews</Button>
+          </Link>
           <Link href="/dashboard/artist/availability">
             <Button variant="outline" size="sm">Manage Availability</Button>
           </Link>
@@ -69,14 +72,19 @@ async function SetupBanner() {
 }
 
 async function ArtistStats() {
-  const { items: bookings } = await api.bookings.listForArtist({ status: "all", limit: 50 });
+  const [{ items: bookings }, profile] = await Promise.all([
+    api.bookings.listForArtist({ status: "all", limit: 50 }),
+    api.artists.me(),
+  ]);
 
   const pending = bookings.filter((b) => b.status === "pending").length;
   const confirmed = bookings.filter((b) => b.status === "confirmed" || b.status === "deposit_paid").length;
-  const completed = bookings.filter((b) => b.status === "completed").length;
   const revenue = bookings
     .filter((b) => b.status === "completed" && b.depositAmount)
     .reduce((sum, b) => sum + Number(b.depositAmount ?? 0), 0);
+
+  const avg = Number(profile?.averageRating ?? 0);
+  const reviewCount = profile?.reviewCount ?? 0;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -98,15 +106,24 @@ async function ArtistStats() {
           <div className="text-2xl font-bold">{confirmed}</div>
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
-          <Star className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{completed}</div>
-        </CardContent>
-      </Card>
+      <Link href="/dashboard/artist/reviews" className="block">
+        <Card className="transition-colors hover:bg-accent">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Rating</CardTitle>
+            <Star className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {reviewCount === 0 ? "—" : avg.toFixed(1)}
+            </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {reviewCount === 0
+                ? "No reviews yet"
+                : `${reviewCount} review${reviewCount === 1 ? "" : "s"}`}
+            </p>
+          </CardContent>
+        </Card>
+      </Link>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">Deposits received</CardTitle>

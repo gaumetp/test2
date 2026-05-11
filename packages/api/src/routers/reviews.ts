@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq, avg, count } from "drizzle-orm";
-import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
+import { createTRPCRouter, protectedProcedure, publicProcedure, artistProcedure } from "../trpc";
 import { reviews, bookings, artistProfiles } from "@tattoo-saas/db";
 
 export const reviewsRouter = createTRPCRouter({
@@ -104,4 +104,16 @@ export const reviewsRouter = createTRPCRouter({
 
       return items;
     }),
+
+  listForMe: artistProcedure.query(async ({ ctx }) => {
+    const items = await ctx.db.query.reviews.findMany({
+      where: eq(reviews.artistId, ctx.user.id),
+      orderBy: (r, { desc }) => [desc(r.createdAt)],
+      with: {
+        client: { columns: { id: true, email: true } },
+      },
+    });
+
+    return items;
+  }),
 });
