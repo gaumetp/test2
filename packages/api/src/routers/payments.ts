@@ -19,7 +19,7 @@ export const paymentsRouter = createTRPCRouter({
     .input(z.object({ bookingId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const Stripe = (await import("stripe")).default;
-      const stripe = new Stripe(process.env["STRIPE_SECRET_KEY"]!, { apiVersion: "2024-11-20.acacia" });
+      const stripe = new Stripe(process.env["STRIPE_SECRET_KEY"]!, { apiVersion: "2025-02-24.acacia" });
 
       const user = await ctx.db.query.users.findFirst({
         where: (u, { eq }) => eq(u.clerkId, ctx.userId),
@@ -74,7 +74,7 @@ export const paymentsRouter = createTRPCRouter({
     .input(z.object({ returnUrl: z.string().url() }))
     .mutation(async ({ ctx, input }) => {
       const Stripe = (await import("stripe")).default;
-      const stripe = new Stripe(process.env["STRIPE_SECRET_KEY"]!, { apiVersion: "2024-11-20.acacia" });
+      const stripe = new Stripe(process.env["STRIPE_SECRET_KEY"]!, { apiVersion: "2025-02-24.acacia" });
 
       let profile = await ctx.db.query.artistProfiles.findFirst({
         where: (p, { eq }) => eq(p.id, ctx.user.id),
@@ -116,7 +116,7 @@ export const paymentsRouter = createTRPCRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       const Stripe = (await import("stripe")).default;
-      const stripe = new Stripe(process.env["STRIPE_SECRET_KEY"]!, { apiVersion: "2024-11-20.acacia" });
+      const stripe = new Stripe(process.env["STRIPE_SECRET_KEY"]!, { apiVersion: "2025-02-24.acacia" });
 
       const PRICE_IDS: Record<string, string> = {
         pro: process.env["STRIPE_PRICE_PRO"]!,
@@ -135,7 +135,7 @@ export const paymentsRouter = createTRPCRouter({
       const session = await stripe.checkout.sessions.create({
         mode: "subscription",
         payment_method_types: ["card"],
-        customer: user.stripeCustomerId ?? undefined,
+        ...(user.stripeCustomerId && { customer: user.stripeCustomerId }),
         line_items: [{ price: priceId, quantity: 1 }],
         success_url: input.successUrl,
         cancel_url: input.cancelUrl,

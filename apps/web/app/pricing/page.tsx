@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { Navbar } from "@/components/navbar";
-import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
+import { TierCTA } from "./tier-cta";
 
 export const metadata = {
   title: "Pricing — InkBook",
@@ -11,6 +10,7 @@ export const metadata = {
 const TIERS = [
   {
     name: "Free",
+    tier: "free",
     price: 0,
     period: "forever",
     description: "Try it out. No credit card needed.",
@@ -29,6 +29,7 @@ const TIERS = [
   },
   {
     name: "Pro",
+    tier: "pro",
     price: 29,
     period: "/month",
     description: "For active independent artists.",
@@ -49,6 +50,7 @@ const TIERS = [
   },
   {
     name: "Studio",
+    tier: "studio",
     price: 89,
     period: "/month",
     description: "For studios with up to 5 artists.",
@@ -67,6 +69,7 @@ const TIERS = [
   },
   {
     name: "Studio+",
+    tier: "studio_plus",
     price: 149,
     period: "/month",
     description: "For large studios with up to 15 artists.",
@@ -144,14 +147,12 @@ export default function PricingPage() {
                   ))}
                 </ul>
 
-                <Link href={tier.href}>
-                  <Button
-                    className="w-full"
-                    variant={tier.highlight ? "secondary" : "default"}
-                  >
-                    {tier.cta}
-                  </Button>
-                </Link>
+                <TierCTA
+                  tier={tier.tier}
+                  cta={tier.cta}
+                  href={tier.href}
+                  isHighlighted={tier.highlight}
+                />
               </div>
             ))}
           </div>

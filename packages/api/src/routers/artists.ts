@@ -105,13 +105,30 @@ export const artistsRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND" });
       }
 
+      // Build update object excluding undefined values (exactOptionalPropertyTypes)
+      const updateData = Object.fromEntries(
+        Object.entries({ ...input, updatedAt: new Date() }).filter(([, v]) => v !== undefined)
+      ) as Parameters<typeof ctx.db.update<typeof artistProfiles>>[0] extends never ? never : Record<string, unknown>;
+
       const [updated] = await ctx.db
         .update(artistProfiles)
-        .set({ ...input, updatedAt: new Date() })
+        .set(updateData as never)
         .where(eq(artistProfiles.id, ctx.user.id))
         .returning();
 
       return updated;
+    }),
+
+  me: artistProcedure
+    .query(async ({ ctx }) => {
+      return ctx.db.query.artistProfiles.findFirst({
+        where: (p, { eq }) => eq(p.id, ctx.user.id),
+        with: {
+          portfolio: {
+            orderBy: (p, { asc }) => [asc(p.displayOrder)],
+          },
+        },
+      });
     }),
 
   // Called during artist onboarding to create the profile

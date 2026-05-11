@@ -145,7 +145,13 @@ export const availabilityRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       await ctx.db
         .insert(availabilityOverrides)
-        .values({ ...input, artistId: ctx.user.id })
+        .values({
+          date: input.date,
+          isBlocked: input.isBlocked,
+          customSlots: input.customSlots ?? null,
+          reason: input.reason ?? null,
+          artistId: ctx.user.id,
+        })
         .onConflictDoUpdate({
           target: [availabilityOverrides.artistId, availabilityOverrides.date],
           set: {

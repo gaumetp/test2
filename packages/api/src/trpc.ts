@@ -1,5 +1,6 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import { ZodError } from "zod";
+import SuperJSON from "superjson";
 import { db } from "@tattoo-saas/db";
 import type { Database } from "@tattoo-saas/db";
 
@@ -21,6 +22,7 @@ export async function createTRPCContext(opts: {
 }
 
 const t = initTRPC.context<TRPCContext>().create({
+  transformer: SuperJSON,
   errorFormatter({ shape, error }) {
     return {
       ...shape,

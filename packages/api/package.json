@@ -15,7 +15,9 @@
     "@tattoo-saas/db": "*",
     "@trpc/server": "^11.0.0",
     "date-fns": "^3.6.0",
+    "drizzle-orm": "^0.36.4",
     "stripe": "^17.3.1",
+    "superjson": "^2.2.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {

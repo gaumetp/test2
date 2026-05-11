@@ -15,12 +15,11 @@ const handler = async (req: NextRequest) => {
         headers: req.headers,
         userId,
       }),
-    onError:
-      process.env.NODE_ENV === "development"
-        ? ({ path, error }) => {
-            console.error(`tRPC error on ${path ?? "<no-path>"}:`, error);
-          }
-        : undefined,
+    ...(process.env.NODE_ENV === "development" && {
+      onError: ({ path, error }: { path: string | undefined; error: unknown }) => {
+        console.error(`tRPC error on ${path ?? "<no-path>"}:`, error);
+      },
+    }),
   });
 };
 

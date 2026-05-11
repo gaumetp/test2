@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq, and, or, desc } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "../trpc.js";
-import { bookings, users, artistProfiles } from "@tattoo-saas/db";
+import { bookings, users, artistProfiles, notifications } from "@tattoo-saas/db";
 import { sendEmail, bookingRequestHtml, bookingConfirmedHtml } from "../email.js";
 
 const bookingStatusValues = [
@@ -50,7 +50,7 @@ export const bookingsRouter = createTRPCRouter({
       const [booking] = await ctx.db.insert(bookings).values({
         clientId: user.id,
         artistId: input.artistId,
-        studioId: input.studioId,
+        ...(input.studioId && { studioId: input.studioId }),
         serviceType: input.serviceType,
         startAt: input.startAt,
         endAt: input.endAt,
@@ -59,13 +59,20 @@ export const bookingsRouter = createTRPCRouter({
         status: "pending",
       }).returning();
 
-      // Notify artist (fire-and-forget, don't block response)
+      if (!booking) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // Notify artist (fire-and-forget)
       const artistUser = await ctx.db.query.users.findFirst({
         where: (u, { eq }) => eq(u.id, input.artistId),
       });
       if (artistUser) {
         const dateStr = input.startAt.toLocaleDateString("en-US", {
           weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
+        });
+        void ctx.db.insert(notifications).values({
+          userId: input.artistId,
+          type: "booking_request",
+          payload: { bookingId: booking.id, clientEmail: user.email, serviceType: input.serviceType, dateStr },
         });
         void sendEmail({
           to: artistUser.email,
@@ -113,35 +120,47 @@ export const bookingsRouter = createTRPCRouter({
         .update(bookings)
         .set({
           status: input.action === "confirm" ? "confirmed" : "cancelled",
-          artistNote: input.message,
-          estimatedPrice: input.estimatedPrice?.toString(),
-          depositAmount: input.depositAmount?.toString(),
-          cancellationReason: input.action === "decline" ? input.message : undefined,
-          cancelledBy: input.action === "decline" ? user.id : undefined,
+          ...(input.message !== undefined && { artistNote: input.message }),
+          ...(input.estimatedPrice !== undefined && { estimatedPrice: input.estimatedPrice.toString() }),
+          ...(input.depositAmount !== undefined && { depositAmount: input.depositAmount.toString() }),
+          ...(input.action === "decline" && { cancellationReason: input.message ?? null, cancelledBy: user.id }),
           updatedAt: new Date(),
         })
         .where(eq(bookings.id, input.bookingId))
         .returning();
 
-      // Notify client on confirm
-      if (input.action === "confirm" && input.depositAmount) {
-        const clientUser = await ctx.db.query.users.findFirst({
-          where: (u, { eq }) => eq(u.id, booking.clientId),
-        });
-        if (clientUser) {
+      // Notify client on confirm/decline
+      const clientUser = await ctx.db.query.users.findFirst({
+        where: (u, { eq }) => eq(u.id, booking.clientId),
+      });
+      if (clientUser) {
+        if (input.action === "confirm") {
           const dateStr = booking.startAt.toLocaleDateString("en-US", {
             weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
           });
-          void sendEmail({
-            to: clientUser.email,
-            subject: `Your booking with ${booking.artist.displayName} is confirmed`,
-            html: bookingConfirmedHtml({
-              clientEmail: clientUser.email,
-              artistName: booking.artist.displayName,
-              dateStr,
-              depositAmount: String(input.depositAmount),
-              bookingId: input.bookingId,
-            }),
+          void ctx.db.insert(notifications).values({
+            userId: booking.clientId,
+            type: "booking_confirmed",
+            payload: { bookingId: input.bookingId, artistName: booking.artist.displayName, depositAmount: input.depositAmount },
+          });
+          if (input.depositAmount) {
+            void sendEmail({
+              to: clientUser.email,
+              subject: `Your booking with ${booking.artist.displayName} is confirmed`,
+              html: bookingConfirmedHtml({
+                clientEmail: clientUser.email,
+                artistName: booking.artist.displayName,
+                dateStr,
+                depositAmount: String(input.depositAmount),
+                bookingId: input.bookingId,
+              }),
+            });
+          }
+        } else {
+          void ctx.db.insert(notifications).values({
+            userId: booking.clientId,
+            type: "booking_declined",
+            payload: { bookingId: input.bookingId, artistName: booking.artist.displayName },
           });
         }
       }
@@ -211,7 +230,7 @@ export const bookingsRouter = createTRPCRouter({
         .update(bookings)
         .set({
           status: "cancelled",
-          cancellationReason: input.reason,
+          cancellationReason: input.reason ?? null,
           cancelledBy: user.id,
           updatedAt: new Date(),
         })

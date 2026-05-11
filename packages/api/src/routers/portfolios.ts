@@ -40,12 +40,12 @@ export const portfoliosRouter = createTRPCRouter({
       const [item] = await ctx.db.insert(portfolioItems).values({
         artistId: ctx.user.id,
         imageUrl: input.imageUrl,
-        cloudinaryPublicId: input.cloudinaryPublicId,
-        caption: input.caption,
-        style: input.style as never,
-        bodyPart: input.bodyPart,
+        cloudinaryPublicId: input.cloudinaryPublicId ?? null,
+        caption: input.caption ?? null,
+        style: (input.style ?? null) as never,
+        bodyPart: input.bodyPart ?? null,
         isFlash: input.isFlash,
-        flashPrice: input.flashPrice?.toString(),
+        flashPrice: input.flashPrice != null ? input.flashPrice.toString() : null,
         displayOrder: maxOrder,
       }).returning();
 

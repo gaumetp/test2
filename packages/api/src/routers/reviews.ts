@@ -33,7 +33,7 @@ export const reviewsRouter = createTRPCRouter({
         clientId: user.id,
         artistId: booking.artistId,
         rating: input.rating,
-        body: input.body,
+        body: input.body ?? null,
       }).returning();
 
       // Recompute artist average rating

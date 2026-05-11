@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "../trpc.js";
-import { messages, bookings } from "@tattoo-saas/db";
+import { messages, bookings, notifications } from "@tattoo-saas/db";
 
 export const messagesRouter = createTRPCRouter({
 
@@ -36,6 +36,14 @@ export const messagesRouter = createTRPCRouter({
         content: input.content,
         attachments: input.attachments,
       }).returning();
+
+      // Notify the other party
+      const recipientId = user.id === booking.clientId ? booking.artistId : booking.clientId;
+      void ctx.db.insert(notifications).values({
+        userId: recipientId,
+        type: "new_message",
+        payload: { bookingId: input.bookingId, senderEmail: user.email },
+      });
 
       return message;
     }),

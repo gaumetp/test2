@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { trpc } from "@/lib/trpc/client";
@@ -21,7 +21,7 @@ const STYLES = [
 export default function ArtistProfilePage() {
   const utils = trpc.useUtils();
 
-  // Fetch current profile via artist search (me)
+  const { data: myProfile } = trpc.artists.me.useQuery();
   const { data: portfolioItems, isLoading: portfolioLoading } = trpc.portfolios.list.useQuery();
 
   const updateProfile = trpc.artists.updateProfile.useMutation({
@@ -58,12 +58,23 @@ export default function ArtistProfilePage() {
     instagramHandle: "",
     websiteUrl: "",
   });
-  const [initialized, setInitialized] = useState(false);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // This is a simplified approach — in production, fetch the current user's profile
-  // and populate the form. For now, form starts empty and saves changes.
+  useEffect(() => {
+    if (myProfile) {
+      setForm({
+        displayName: myProfile.displayName ?? "",
+        bio: myProfile.bio ?? "",
+        city: myProfile.city ?? "",
+        country: myProfile.country ?? "",
+        styles: (myProfile.styles ?? []) as typeof STYLES[number][],
+        hourlyRate: myProfile.hourlyRate ? String(myProfile.hourlyRate) : "",
+        minPrice: myProfile.minPrice ? String(myProfile.minPrice) : "",
+        instagramHandle: myProfile.instagramHandle ?? "",
+        websiteUrl: myProfile.websiteUrl ?? "",
+      });
+    }
+  }, [myProfile]);
 
   function toggleStyle(style: typeof STYLES[number]) {
     setForm((f) => ({

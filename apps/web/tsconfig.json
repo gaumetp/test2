@@ -7,6 +7,8 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowJs": true,
+    "declaration": false,
+    "declarationMap": false,
     "paths": {
       "@/*": ["./*"]
     },
