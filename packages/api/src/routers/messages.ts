@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq } from "drizzle-orm";
+import { eq, and, ne, isNull } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { messages, bookings, notifications } from "@tattoo-saas/db";
 
@@ -81,12 +81,16 @@ export const messagesRouter = createTRPCRouter({
         },
       });
 
-      // Mark unread messages as read
+      // Mark inbound unread messages as read (skip own and already-read)
       await ctx.db
         .update(messages)
         .set({ readAt: new Date() })
         .where(
-          eq(messages.bookingId, input.bookingId)
+          and(
+            eq(messages.bookingId, input.bookingId),
+            ne(messages.senderId, user.id),
+            isNull(messages.readAt),
+          )
         );
 
       return items;

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { MessageThread } from "@/components/message-thread";
 import { formatDate, formatPrice } from "@/lib/utils";
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 interface Props {
@@ -27,7 +27,6 @@ const STATUS_COLOR: Record<string, "default" | "secondary" | "destructive" | "ou
 };
 
 export default function ArtistBookingDetailPage({ params }: Props) {
-  const router = useRouter();
   const utils = trpc.useUtils();
 
   const { data: booking, isLoading } = trpc.bookings.byId.useQuery({ id: params.id });
@@ -40,14 +39,6 @@ export default function ArtistBookingDetailPage({ params }: Props) {
     onSuccess: () => utils.bookings.byId.invalidate({ id: params.id }),
   });
 
-  const sendMessage = trpc.messages.send.useMutation({
-    onSuccess: () => {
-      utils.bookings.byId.invalidate({ id: params.id });
-      setMessage("");
-    },
-  });
-
-  const [message, setMessage] = useState("");
   const [depositAmount, setDepositAmount] = useState("");
   const [estimatedPrice, setEstimatedPrice] = useState("");
   const [declineMessage, setDeclineMessage] = useState("");
@@ -241,51 +232,16 @@ export default function ArtistBookingDetailPage({ params }: Props) {
           )}
 
           {/* Messaging */}
-          <div className="rounded-lg border p-5 space-y-4">
-            <h2 className="font-semibold">Messages</h2>
-            <div className="space-y-3 max-h-80 overflow-y-auto">
-              {booking.messages?.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">No messages yet</p>
-              ) : (
-                booking.messages?.map((msg) => (
-                  <div key={msg.id} className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium">{msg.sender?.email}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </div>
-                    <p className="text-sm bg-muted rounded-lg px-3 py-2 inline-block">{msg.content}</p>
-                  </div>
-                ))
-              )}
-            </div>
-            {booking.status !== "cancelled" && booking.status !== "completed" && (
-              <div className="flex gap-2">
-                <Textarea
-                  rows={2}
-                  placeholder="Type a message..."
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      if (message.trim()) {
-                        sendMessage.mutate({ bookingId: params.id, content: message.trim() });
-                      }
-                    }
-                  }}
-                />
-                <Button
-                  size="icon"
-                  disabled={!message.trim() || sendMessage.isPending}
-                  onClick={() => sendMessage.mutate({ bookingId: params.id, content: message.trim() })}
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </div>
+          <MessageThread
+            bookingId={params.id}
+            meId={booking.artistId}
+            disabled={booking.status === "cancelled" || booking.status === "completed"}
+            disabledReason={
+              booking.status === "cancelled"
+                ? "Messaging is closed — this booking was cancelled."
+                : "Messaging is closed — this booking is complete."
+            }
+          />
         </div>
 
         {/* Sidebar */}

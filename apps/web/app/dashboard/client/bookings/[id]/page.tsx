@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { MessageThread } from "@/components/message-thread";
 import { formatDate, formatPrice } from "@/lib/utils";
-import { ArrowLeft, Send, Star } from "lucide-react";
+import { ArrowLeft, Star } from "lucide-react";
 
 interface Props {
   params: { id: string };
@@ -34,13 +35,6 @@ export default function ClientBookingDetailPage({ params }: Props) {
     onSuccess: () => utils.bookings.byId.invalidate({ id: params.id }),
   });
 
-  const sendMessage = trpc.messages.send.useMutation({
-    onSuccess: () => {
-      utils.bookings.byId.invalidate({ id: params.id });
-      setMessage("");
-    },
-  });
-
   const submitReview = trpc.reviews.create.useMutation({
     onSuccess: () => {
       utils.bookings.byId.invalidate({ id: params.id });
@@ -48,7 +42,6 @@ export default function ClientBookingDetailPage({ params }: Props) {
     },
   });
 
-  const [message, setMessage] = useState("");
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [rating, setRating] = useState(5);
   const [reviewBody, setReviewBody] = useState("");
@@ -198,57 +191,16 @@ export default function ClientBookingDetailPage({ params }: Props) {
           )}
 
           {/* Messages */}
-          <div className="rounded-lg border p-5 space-y-4">
-            <h2 className="font-semibold">Messages</h2>
-            <div className="space-y-3 max-h-80 overflow-y-auto">
-              {booking.messages?.length === 0 ? (
-                <p className="text-sm text-center py-6 text-muted-foreground">
-                  No messages yet. Ask the artist any questions you have.
-                </p>
-              ) : (
-                booking.messages?.map((msg) => (
-                  <div key={msg.id} className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium">
-                        {msg.sender?.role === "artist" ? booking.artist?.displayName : "You"}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </div>
-                    <p className={`text-sm rounded-lg px-3 py-2 inline-block ${
-                      msg.sender?.role === "artist" ? "bg-muted" : "bg-foreground text-background"
-                    }`}>
-                      {msg.content}
-                    </p>
-                  </div>
-                ))
-              )}
-            </div>
-            {booking.status !== "cancelled" && booking.status !== "completed" && (
-              <div className="flex gap-2">
-                <Textarea
-                  rows={2}
-                  placeholder="Type a message..."
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      if (message.trim()) sendMessage.mutate({ bookingId: params.id, content: message.trim() });
-                    }
-                  }}
-                />
-                <Button
-                  size="icon"
-                  disabled={!message.trim() || sendMessage.isPending}
-                  onClick={() => sendMessage.mutate({ bookingId: params.id, content: message.trim() })}
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </div>
+          <MessageThread
+            bookingId={params.id}
+            meId={booking.clientId}
+            disabled={booking.status === "cancelled" || booking.status === "completed"}
+            disabledReason={
+              booking.status === "cancelled"
+                ? "Messaging is closed — this booking was cancelled."
+                : "Messaging is closed — this booking is complete."
+            }
+          />
         </div>
 
         {/* Sidebar */}
