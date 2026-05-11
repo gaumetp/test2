@@ -141,6 +141,14 @@ export function NotificationBell() {
                 })
               )}
             </div>
+
+            <Link
+              href="/dashboard/notifications"
+              onClick={() => setOpen(false)}
+              className="block border-t px-4 py-2.5 text-center text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              View all notifications
+            </Link>
           </div>
         </>
       )}

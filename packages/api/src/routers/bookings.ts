@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq, and, or, desc } from "drizzle-orm";
+import { eq, and, or, desc, lt, gt, ne } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { bookings, users, artistProfiles, notifications } from "@tattoo-saas/db";
 import { sendEmail, bookingRequestHtml, bookingConfirmedHtml } from "../email";
@@ -35,17 +35,21 @@ export const bookingsRouter = createTRPCRouter({
       });
       if (!artist) throw new TRPCError({ code: "NOT_FOUND", message: "Artist not found" });
 
-      // Prevent double-booking: check for overlapping confirmed bookings
+      // Prevent double-booking: any non-cancelled booking overlapping the requested window
       const conflict = await ctx.db.query.bookings.findFirst({
         where: and(
           eq(bookings.artistId, input.artistId),
-          or(
-            eq(bookings.status, "confirmed"),
-            eq(bookings.status, "deposit_paid")
-          ),
-          // Simple overlap check via raw SQL would be better; this is a safe approximation
+          ne(bookings.status, "cancelled"),
+          lt(bookings.startAt, input.endAt),
+          gt(bookings.endAt, input.startAt),
         ),
       });
+      if (conflict) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "That time slot is no longer available. Please pick a different time.",
+        });
+      }
 
       const [booking] = await ctx.db.insert(bookings).values({
         clientId: user.id,
